@@ -88,20 +88,30 @@ class SpeedTester:
         self.callback = callback  # callback(stage: str, progress: float)
         self._start_time = 0.0
 
-    def _progress_callback(self, current: float, total: float, action: str = "") -> None:
-        """Called during speed test to report progress."""
-        if self.callback:
-            stage_map = {
-                "download": "Downloading",
-                "upload": "Uploading",
-                "ping": "Testing Ping",
-                "waiting": "Waiting",
-                "init": "Initializing",
-                "finding_server": "Finding Server",
-            }
-            stage = stage_map.get(action, action.capitalize())
+    def _make_callback(self, action: str):
+        """Create a closure that reports progress for a specific action.
+
+        Speedtest-cli calls the callback as ``callback(current, total)``
+        without passing the action name, so we bind the action here.
+        """
+        if not self.callback:
+            return None
+
+        stage_map = {
+            "download": "Downloading",
+            "upload": "Uploading",
+            "ping": "Testing Ping",
+            "waiting": "Waiting",
+            "init": "Initializing",
+            "finding_server": "Finding Server",
+        }
+        stage = stage_map.get(action, action.capitalize())
+
+        def cb(current: float, total: float, **kwargs) -> None:
             progress = current / total if total > 0 else 0
             self.callback(stage, progress)
+
+        return cb
 
     def run_test(self) -> SpeedTestResult:
         """Execute a full speed test and return the result."""
@@ -126,7 +136,7 @@ class SpeedTester:
 
             server = st.results.server or {}
             result.server_name = server.get("name", "")
-            result.server_location = server.get("name", "")
+            result.server_location = server.get("sponsor", server.get("name", ""))
             result.server_country = server.get("country", "")
             result.server_host = server.get("host", "")
             result.server_id = int(server.get("id", 0))
@@ -143,7 +153,7 @@ class SpeedTester:
             if self.callback:
                 self.callback("Downloading", 0.0)
 
-            st.download(callback=self._progress_callback if self.callback else None)
+            st.download(callback=self._make_callback("download"))
             result.download_bps = st.results.download
             result.download_mbps = st.results.download / 1_000_000
             result.bytes_downloaded = st.results.bytes_received if hasattr(st.results, 'bytes_received') else 0
@@ -152,14 +162,13 @@ class SpeedTester:
             if self.callback:
                 self.callback("Uploading", 0.0)
 
-            st.upload(callback=self._progress_callback if self.callback else None)
+            st.upload(callback=self._make_callback("upload"))
             result.upload_bps = st.results.upload
             result.upload_mbps = st.results.upload / 1_000_000
             result.bytes_uploaded = st.results.bytes_sent if hasattr(st.results, 'bytes_sent') else 0
 
-            # Jitter approximation (difference between min and max ping)
-            if hasattr(st.results, 'ping'):
-                result.jitter_ms = 0.0
+            # Jitter — speedtest-cli doesn't expose per-packet variance,
+            # so jitter stays at the dataclass default of 0.0 by design.
 
             result.duration_seconds = time.time() - self._start_time
             result.timestamp = self._start_time
@@ -184,7 +193,10 @@ class SpeedTester:
             return 0.0
         try:
             st = speedtest.Speedtest(secure=True)
-            st.get_best_server()
+            if self.server_id:
+                st.get_servers([self.server_id])
+            else:
+                st.get_best_server()
             st.download()
             return st.results.download / 1_000_000
         except Exception:
@@ -196,7 +208,10 @@ class SpeedTester:
             return 0.0
         try:
             st = speedtest.Speedtest(secure=True)
-            st.get_best_server()
+            if self.server_id:
+                st.get_servers([self.server_id])
+            else:
+                st.get_best_server()
             st.upload()
             return st.results.upload / 1_000_000
         except Exception:
@@ -208,7 +223,10 @@ class SpeedTester:
             return 0.0
         try:
             st = speedtest.Speedtest(secure=True)
-            st.get_best_server()
+            if self.server_id:
+                st.get_servers([self.server_id])
+            else:
+                st.get_best_server()
             return float(st.results.ping)
         except Exception:
             return 0.0
@@ -263,7 +281,7 @@ def list_servers() -> List[Dict[str, Any]]:
                 result.append({
                     "id": s.get("id", 0),
                     "name": s.get("name", ""),
-                    "location": s.get("name", ""),
+                    "location": s.get("sponsor", s.get("name", "")),
                     "country": s.get("country", ""),
                     "sponsor": s.get("sponsor", ""),
                     "host": s.get("host", ""),

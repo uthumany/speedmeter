@@ -72,19 +72,19 @@ SpeedMeter is a **fully interactive, real-time internet speed meter** that runs 
 
 **Linux / macOS:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fameux/speedmeter/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Uthuman/speedmeter/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-iwr -useb https://raw.githubusercontent.com/fameux/speedmeter/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/Uthuman/speedmeter/main/install.ps1 | iex
 ```
 
 ### Option 2: Manual Install from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/fameux/speedmeter.git
+git clone https://github.com/Uthuman/speedmeter.git
 cd speedmeter
 
 # Create a virtual environment (recommended)
@@ -310,7 +310,7 @@ Contributions are welcome! Here's how you can help:
 ### Development Setup
 
 ```bash
-git clone https://github.com/fameux/speedmeter.git
+git clone https://github.com/Uthuman/speedmeter.git
 cd speedmeter
 python3 -m venv venv
 source venv/bin/activate

@@ -43,7 +43,10 @@ class SpeedGauge(Static):
     def render(self) -> TextualRenderableType:
         """Render the gauge."""
         value = self.current_value + (self.animate_to - self.current_value) * self.animation_progress
-        if self.animation_progress < 1.0:
+        if self.animation_progress >= 1.0:
+            # Animation complete — snap current_value so next set_value animates from here
+            self.current_value = self.animate_to
+        else:
             self.animation_progress = min(1.0, self.animation_progress + 0.1)
 
         clamped = max(0, min(value, self.max_value))

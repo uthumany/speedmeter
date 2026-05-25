@@ -37,6 +37,8 @@ class HistoryManager:
 
     def get_last(self, n: int = 1) -> List[SpeedTestResult]:
         """Get the last N results."""
+        if n <= 0:
+            return []
         with self._lock:
             items = list(self._results)
             return items[-n:]
@@ -120,7 +122,7 @@ class HistoryManager:
             os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
             with self._lock:
                 data = [r.to_dict() for r in self._results]
-            with open(self.file_path, "w") as f:
-                json.dump(data, f, indent=2, default=str)
+                with open(self.file_path, "w") as f:
+                    json.dump(data, f, indent=2, default=str)
         except IOError as e:
             logger.error("Failed to save history: %s", e)

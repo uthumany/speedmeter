@@ -293,8 +293,8 @@ class TestHistoryManager:
             ))
         last = hm.get_last(2)
         assert len(last) == 2
-        assert last[-1].timestamp == 4  # oldest of the last 2
-        assert last[0].timestamp == 5  # newest of the last 2
+        assert last[0].timestamp == 4  # index 0 is the older of the last 2
+        assert last[1].timestamp == 5  # index 1 is the newest
 
 
 # =============================================================================
@@ -365,6 +365,293 @@ class TestCLI:
         from speedmeter.__main__ import parse_args
         args = parse_args(["--config", "/path/to/config.json"])
         assert args.config == "/path/to/config.json"
+
+
+# =============================================================================
+# Config: Deep merge edge cases
+# =============================================================================
+
+class TestConfigDeepMerge:
+    """Test deep merge configuration behavior."""
+
+    def test_deep_merge_overrides_nested_key(self):
+        """Deep merge should override nested values."""
+        from speedmeter.config import _deep_merge
+        base = {"app": {"refresh_interval": 5, "theme": "auto"}}
+        override = {"app": {"refresh_interval": 10}}
+        _deep_merge(base, override)
+        assert base["app"]["refresh_interval"] == 10
+        assert base["app"]["theme"] == "auto"  # preserved
+
+    def test_deep_merge_adds_new_key(self):
+        """Deep merge should add keys not in base."""
+        from speedmeter.config import _deep_merge
+        base = {"app": {"refresh_interval": 5}}
+        override = {"app": {"timeout": 60}}
+        _deep_merge(base, override)
+        assert base["app"]["timeout"] == 60
+
+    def test_deep_merge_overrides_non_dict(self):
+        """Deep merge should override non-dict values entirely."""
+        from speedmeter.config import _deep_merge
+        base = {"units": {"speed": "Mbps"}}
+        override = {"units": "custom"}
+        _deep_merge(base, override)
+        assert base["units"] == "custom"
+
+    def test_save_config_no_path(self):
+        """save_config should return False when no path available."""
+        from speedmeter.config import save_config
+        result = save_config({"app": {}})
+        assert result is False
+
+
+# =============================================================================
+# SpeedTestResult: Deserialization edge cases
+# =============================================================================
+
+class TestSpeedTestResultEdgeCases:
+    """Test SpeedTestResult edge cases."""
+
+    def test_from_dict_ignores_unknown_keys(self):
+        """from_dict should ignore keys not in the dataclass."""
+        data = {
+            "download_mbps": 100.0,
+            "upload_mbps": 50.0,
+            "ping_ms": 15.0,
+            "nonexistent_field": "should be ignored",
+        }
+        result = SpeedTestResult.from_dict(data)
+        assert result.download_mbps == 100.0
+        assert not hasattr(result, "nonexistent_field")
+
+    def test_from_dict_empty(self):
+        """from_dict with empty dict should return default result."""
+        result = SpeedTestResult.from_dict({})
+        assert result.download_mbps == 0.0
+        assert result.is_valid is False
+
+    def test_to_json_roundtrip(self):
+        """to_json then from_dict should preserve all fields."""
+        original = SpeedTestResult(
+            timestamp=1000.0,
+            download_bps=100_000_000,
+            upload_bps=50_000_000,
+            ping_ms=15.0,
+            jitter_ms=2.5,
+            download_mbps=100.0,
+            upload_mbps=50.0,
+            server_name="Test",
+            server_location="Loc",
+            server_country="US",
+            server_host="test.example.com",
+            server_id=12345,
+            bytes_downloaded=1024,
+            bytes_uploaded=512,
+            isp="My ISP",
+            external_ip="1.2.3.4",
+            duration_seconds=30.5,
+        )
+        json_str = original.to_json()
+        parsed = json.loads(json_str)
+        result = SpeedTestResult.from_dict(parsed)
+        assert result.download_mbps == 100.0
+        assert result.upload_mbps == 50.0
+        assert result.server_name == "Test"
+        assert result.server_id == 12345
+        assert result.isp == "My ISP"
+        assert result.external_ip == "1.2.3.4"
+
+
+# =============================================================================
+# HistoryManager: Edge cases and concurrency
+# =============================================================================
+
+class TestHistoryManagerEdgeCases:
+    """Test HistoryManager edge cases."""
+
+    def test_get_last_more_than_count(self):
+        """get_last with n larger than count should return all."""
+        hm = HistoryManager(max_size=10)
+        hm.add(SpeedTestResult(download_mbps=100, upload_mbps=50, ping_ms=10))
+        hm.add(SpeedTestResult(download_mbps=200, upload_mbps=80, ping_ms=5))
+        last = hm.get_last(100)
+        assert len(last) == 2
+
+    def test_get_last_zero(self):
+        """get_last with n=0 should return empty list."""
+        hm = HistoryManager(max_size=10)
+        hm.add(SpeedTestResult(download_mbps=100, upload_mbps=50, ping_ms=10))
+        last = hm.get_last(0)
+        assert last == []
+
+    def test_get_averages_empty(self):
+        """Averages on empty history should return 0.0."""
+        hm = HistoryManager(max_size=10)
+        assert hm.get_average_download() == 0.0
+        assert hm.get_average_upload() == 0.0
+        assert hm.get_max_download() == 0.0
+        assert hm.get_min_download() == 0.0
+
+    def test_concurrent_add(self):
+        """Adding from multiple threads should not corrupt history."""
+        import threading
+
+        hm = HistoryManager(max_size=100)
+        errors = []
+
+        def adder(idx):
+            try:
+                hm.add(SpeedTestResult(
+                    timestamp=float(idx),
+                    download_mbps=float(idx * 10),
+                    upload_mbps=float(idx * 5),
+                    ping_ms=10.0,
+                ))
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=adder, args=(i,)) for i in range(50)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert hm.get_count() > 0
+        assert len(errors) == 0
+
+    def test_add_none(self):
+        """Adding None should be silently ignored."""
+        hm = HistoryManager(max_size=10)
+        hm.add(None)  # type: ignore
+        assert hm.get_count() == 0
+
+    def test_file_path_none_persistence(self):
+        """Operations with no file_path should not crash."""
+        hm = HistoryManager(max_size=10)
+        hm.add(SpeedTestResult(download_mbps=100, upload_mbps=50, ping_ms=10))
+        hm.clear()
+        assert hm.get_count() == 0
+
+
+# =============================================================================
+# SpeedTester: _make_callback behavior
+# =============================================================================
+
+class TestSpeedTesterCallbacks:
+    """Test the callback mechanism."""
+
+    def test_make_callback_without_callback(self):
+        """_make_callback should return None when self.callback is None."""
+        tester = SpeedTester()
+        tester.callback = None
+        cb = tester._make_callback("download")
+        assert cb is None
+
+    def test_make_callback_stage_names(self):
+        """_make_callback should produce correct stage names."""
+        captured = []
+
+        tester = SpeedTester()
+        tester.callback = lambda stage, progress: captured.append((stage, progress))
+
+        # Test download callback
+        cb = tester._make_callback("download")
+        assert cb is not None
+        cb(50, 100)  # 50% progress
+        assert captured[-1] == ("Downloading", 0.5)
+
+        # Test upload callback
+        cb = tester._make_callback("upload")
+        cb(25, 100)
+        assert captured[-1] == ("Uploading", 0.25)
+
+        # Test ping callback
+        cb = tester._make_callback("ping")
+        cb(0, 1)
+        assert captured[-1] == ("Testing Ping", 0.0)
+
+    def test_make_callback_zero_total(self):
+        """_make_callback should handle zero total gracefully."""
+        captured = []
+
+        tester = SpeedTester()
+        tester.callback = lambda stage, progress: captured.append((stage, progress))
+
+        cb = tester._make_callback("download")
+        cb(0, 0)
+        assert captured[-1] == ("Downloading", 0.0)
+
+    def test_make_callback_unknown_action(self):
+        """_make_callback should capitalize unknown actions."""
+        captured = []
+
+        tester = SpeedTester()
+        tester.callback = lambda stage, progress: captured.append((stage, progress))
+
+        cb = tester._make_callback("custom_action")
+        cb(10, 100)
+        assert captured[-1] == ("Custom_action", 0.1)
+
+    def test_tester_uses_server_id(self):
+        """Tester should store server_id regardless of speedtest-cli availability."""
+        tester = SpeedTester(server_id=99999)
+        assert tester.server_id == 99999
+
+
+# =============================================================================
+# SpeedGauge: Animation state tracking
+# =============================================================================
+
+class TestSpeedGaugeAnimation:
+    """Test SpeedGauge animation behavior (no TUI rendering)."""
+
+    def test_gauge_initial_state(self):
+        """Gauge should start at 0 with animation complete."""
+        from speedmeter.widgets import SpeedGauge
+        gauge = SpeedGauge(label="Test", max_value=100.0)
+        assert gauge.current_value == 0.0
+        assert gauge.animate_to == 0.0
+        assert gauge.animation_progress == 1.0
+
+    def test_gauge_set_value_resets_animation(self):
+        """set_value should update animate_to and keep current_value stable."""
+        from speedmeter.widgets import SpeedGauge
+        gauge = SpeedGauge(label="Test", max_value=100.0)
+        gauge.set_value(50.0, animate=True)
+        assert gauge.animate_to == 50.0
+        # current_value should eventually snap on render
+
+    def test_gauge_set_value_no_animate(self):
+        """set_value with animate=False should set both immediately."""
+        from speedmeter.widgets import SpeedGauge
+        gauge = SpeedGauge(label="Test", max_value=100.0)
+        gauge.current_value = 30.0
+        gauge.set_value(50.0, animate=False)
+        assert gauge.current_value == 50.0
+        assert gauge.animate_to == 50.0
+
+    def test_gauge_render_snaps_current_value(self):
+        """After render with complete animation, current_value should equal animate_to."""
+        from speedmeter.widgets import SpeedGauge
+        gauge = SpeedGauge(label="Test", max_value=100.0)
+        gauge.set_value(75.0, animate=True)
+        gauge.animation_progress = 1.0  # simulate animation complete
+        gauge.render()  # triggers snap
+        assert gauge.current_value == 75.0
+        assert gauge.animation_progress == 1.0
+
+    def test_gauge_render_in_progress(self):
+        """During animation, current_value should NOT snap yet."""
+        from speedmeter.widgets import SpeedGauge
+        gauge = SpeedGauge(label="Test", max_value=100.0)
+        gauge.current_value = 10.0
+        gauge.set_value(90.0, animate=True)
+        gauge.animation_progress = 0.5  # partially animated
+        gauge.render()
+        # Should NOT snap current_value because animation is incomplete
+        # But should advance animation_progress
+        assert gauge.current_value == 10.0  # unchanged
 
 
 if __name__ == "__main__":
