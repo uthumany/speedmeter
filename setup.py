@@ -4,8 +4,8 @@ from setuptools import find_packages, setup
 
 setup(
     name="speedmeter",
-    version="1.0.0",
-    description="Terminal-based interactive internet speed meter with real-time UI",
+    version="1.1.0",
+    description="Cyberpunk terminal-based internet speed meter with real-time monitoring",
     long_description=open("README.md").read() if __import__("os").path.exists("README.md") else "",
     long_description_content_type="text/markdown",
     author="SpeedMeter Team",

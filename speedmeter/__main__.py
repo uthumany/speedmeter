@@ -12,7 +12,7 @@ def parse_args(argv=None):
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         prog="speedmeter",
-        description="Terminal-based interactive internet speed meter.",
+        description="Cyberpunk terminal-based internet speed meter — real-time network monitoring.",
         epilog="Run without arguments to launch the interactive TUI.",
     )
     parser.add_argument(
@@ -20,6 +20,18 @@ def parse_args(argv=None):
         "--quick",
         action="store_true",
         help="Run a quick speed test once and exit (no TUI).",
+    )
+    parser.add_argument(
+        "-m",
+        "--monitor",
+        action="store_true",
+        help="Launch TUI with continuous network monitoring enabled.",
+    )
+    parser.add_argument(
+        "-w",
+        "--widget",
+        action="store_true",
+        help="Launch the lightweight desktop GUI speed widget.",
     )
     parser.add_argument(
         "-l",
@@ -81,6 +93,18 @@ def main(argv=None):
         stream=sys.stderr,
     )
 
+    # Launch desktop widget mode
+    if args.widget:
+        try:
+            from speedmeter.widget_gui import launch_widget
+
+            launch_widget()
+        except ImportError as e:
+            print(f"ERROR: Could not launch widget: {e}", file=sys.stderr)
+            return 1
+        return 0
+
+    # Quick test mode
     if args.quick:
         from speedmeter.tester import run_quick_test
 
@@ -89,6 +113,7 @@ def main(argv=None):
             print(result.format())
         return 0
 
+    # List servers mode
     if args.list_servers:
         from speedmeter.tester import list_servers
 
@@ -100,7 +125,12 @@ def main(argv=None):
 
     # Launch the TUI
     try:
-        app = SpeedMeterApp(config=config, server_id=args.server, output=args.output)
+        app = SpeedMeterApp(
+            config=config,
+            server_id=args.server,
+            output=args.output,
+            start_monitor=args.monitor,
+        )
         app.run()
     except Exception as e:
         logging.error("Fatal error: %s", e, exc_info=args.verbose)

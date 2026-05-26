@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "speedmeter"
-version = "1.0.0"
-description = "Terminal-based interactive internet speed meter with real-time UI"
+version = "1.1.0"
+description = "Cyberpunk terminal-based internet speed meter with real-time monitoring"
 readme = "README.md"
 authors = [
     {name = "SpeedMeter Team", email = "dev@speedmeter.io"}

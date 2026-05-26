@@ -1,4 +1,4 @@
-"""SpeedMeter Textual TUI Application — interactive internet speed meter."""
+"""SpeedMeter Textual TUI Application — cyberpunk internet speed meter."""
 
 import asyncio
 import logging
@@ -13,39 +13,35 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.widgets import (
-    Button,
-    Footer,
-    Header,
-    Label,
-    RichLog,
-    Static,
-)
+from textual.widgets import Button, Footer, Header, Label, RichLog, Static
 
 from speedmeter.config import get_default_config
 from speedmeter.history import HistoryManager
-from speedmeter.tester import SpeedTester, SpeedTestResult
-from speedmeter.widgets import ServerInfoWidget, SpeedChart, SpeedGauge, SystemStatusWidget
+from speedmeter.tester import NetworkMonitor, SpeedTester, SpeedTestResult
+from speedmeter.widgets import (
+    NEON_CYAN,
+    NEON_GREEN,
+    NEON_MAGENTA,
+    NEON_RED,
+    NEON_YELLOW,
+    TEXT_DIM,
+    MonitorDisplay,
+    ServerInfoWidget,
+    SpeedChart,
+    SpeedGauge,
+    SystemStatusWidget,
+)
 
 logger = logging.getLogger(__name__)
 
-# Color theme
-THEME_DARK = {
-    "primary": "#00ff87",
-    "secondary": "#00d4ff",
-    "accent": "#ff6b6b",
-    "background": "#1a1b26",
-    "surface": "#24253a",
-    "text": "#c0caf5",
-    "text_dim": "#565f89",
-    "success": "#9ece6a",
-    "warning": "#e0af68",
-    "error": "#f7768e",
-}
+
+# =============================================================================
+# Screens
+# =============================================================================
 
 
 class TestResultCard(Static):
-    """A card widget displaying a single speed test result."""
+    """A cyberpunk-style card displaying a single speed test result."""
 
     def __init__(self, result: SpeedTestResult, precision: int = 2):
         super().__init__()
@@ -57,31 +53,49 @@ class TestResultCard(Static):
         r = self.result
         if r.error:
             return Panel(
-                Text(f"Error: {r.error}", style="red bold"),
-                title="Test Failed",
-                border_style="red",
+                Text(f"ERROR: {r.error}", style=f"bold {NEON_RED}"),
+                title="[bold]TEST FAILED[/bold]",
+                border_style=NEON_RED,
             )
 
         grid = Table.grid(padding=(0, 2))
-        grid.add_column(style="bold")
+        grid.add_column(style=f"bold {TEXT_DIM}")
         grid.add_column()
 
-        dl_color = "green" if r.download_mbps >= 50 else "yellow" if r.download_mbps >= 10 else "red"
-        ul_color = "green" if r.upload_mbps >= 20 else "yellow" if r.upload_mbps >= 5 else "red"
+        dl_color = NEON_GREEN if r.download_mbps >= 50 else NEON_YELLOW if r.download_mbps >= 10 else NEON_RED
+        ul_color = NEON_GREEN if r.upload_mbps >= 20 else NEON_YELLOW if r.upload_mbps >= 5 else NEON_RED
 
-        grid.add_row("Download:", Text(f"{r.download_mbps:.{self.precision}f} Mbps", style=f"bold {dl_color}"))
-        grid.add_row("Upload:", Text(f"{r.upload_mbps:.{self.precision}f} Mbps", style=f"bold {ul_color}"))
-        grid.add_row("Ping:", Text(f"{r.ping_ms:.1f} ms", style="cyan"))
+        grid.add_row(
+            Text("DOWNLOAD:", style=f"bold {TEXT_DIM}"),
+            Text(f"{r.download_mbps:.{self.precision}f} Mbps", style=f"bold {dl_color}"),
+        )
+        grid.add_row(
+            Text("UPLOAD:", style=f"bold {TEXT_DIM}"),
+            Text(f"{r.upload_mbps:.{self.precision}f} Mbps", style=f"bold {ul_color}"),
+        )
+        grid.add_row(
+            Text("PING:", style=f"bold {TEXT_DIM}"),
+            Text(f"{r.ping_ms:.1f} ms", style=NEON_CYAN),
+        )
         if r.jitter_ms > 0:
-            grid.add_row("Jitter:", Text(f"{r.jitter_ms:.1f} ms", style="dim"))
-        grid.add_row("Server:", f"{r.server_name}")
-        grid.add_row("Duration:", f"{r.duration_seconds:.1f}s")
+            grid.add_row(
+                Text("JITTER:", style=f"bold {TEXT_DIM}"),
+                Text(f"{r.jitter_ms:.1f} ms", style=f"dim {NEON_CYAN}"),
+            )
+        grid.add_row(
+            Text("SERVER:", style=f"bold {TEXT_DIM}"),
+            Text(f"{r.server_name}", style=NEON_CYAN),
+        )
+        grid.add_row(
+            Text("DURATION:", style=f"bold {TEXT_DIM}"),
+            Text(f"{r.duration_seconds:.1f}s", style=TEXT_DIM),
+        )
 
         ts = time.strftime("%H:%M:%S", time.localtime(r.timestamp))
         return Panel(
             grid,
-            title=f"Test at {ts}",
-            border_style="blue",
+            title=f"[bold]{ts}[/bold]",
+            border_style=NEON_CYAN,
         )
 
 
@@ -102,7 +116,7 @@ class HistoryScreen(Screen):
         container = self.query_one("#history-container")
         results = self.history.get_all()
         if not results:
-            container.mount(Static("[dim]No tests recorded yet.[/dim]"))
+            container.mount(Static(f"[dim {TEXT_DIM}]No tests recorded yet.[/dim]"))
         for result in results:
             container.mount(TestResultCard(result))
 
@@ -113,117 +127,172 @@ class ConfigScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
         yield Container(
-            Label("[bold]Configuration[/bold]", id="config-title"),
-            Static("Edit speedmeter configuration here."),
+            Label("[bold]CONFIGURATION[/bold]", id="config-title"),
+            Static("Configuration UI is under construction."),
             id="config-container",
         )
         yield Footer()
 
 
-class SpeedMeterApp(App):
-    """Main SpeedMeter TUI application."""
+# =============================================================================
+# Main Application
+# =============================================================================
 
+
+class SpeedMeterApp(App):
+    """Cyberpunk-styled SpeedMeter TUI with continuous monitoring."""
+
+    # CSS theme — cyberpunk neon palette, no f-string interpolation needed
     CSS = """
     Screen {
-        background: #1a1b26;
+        background: #0a0e14;
+    }
+
+    Header {
+        background: #0d1117;
+        color: #00ff41;
+        text-style: bold;
+    }
+
+    Footer {
+        background: #0d1117;
+        color: #565f89;
     }
 
     /* Main layout */
     #main-container {
         layout: grid;
-        grid-size: 2 2;
-        grid-gutter: 1;
-        padding: 1;
-        height: 100%;
-    }
-
-    #top-left {
-        height: 100%;
-    }
-
-    #top-right {
-        height: 100%;
-    }
-
-    #bottom-panel {
-        column-span: 2;
-        height: auto;
-        max-height: 12;
-    }
-
-    /* Status bar */
-    #status-bar {
-        height: 1;
-        background: #24253a;
-        color: #565f89;
-        text-align: center;
+        grid-size: 2;
+        grid-gutter: 0;
         padding: 0 1;
+        height: 100%;
     }
 
-    /* Buttons */
-    Button {
-        margin: 0 1;
+    #left-column {
+        height: 100%;
     }
 
-    #test-button {
-        background: #00ff87;
-        color: #1a1b26;
-        text-style: bold;
+    #right-column {
+        height: 100%;
     }
 
-    #stop-button {
-        background: #f7768e;
-        color: #1a1b26;
-        text-style: bold;
+    /* Gauges row */
+    #gauges {
+        height: auto;
+        margin: 0;
     }
 
-    /* Control bar */
+    SpeedGauge {
+        width: 1fr;
+        height: auto;
+        min-height: 8;
+    }
+
+    /* Monitor section */
+    #monitor-section {
+        height: auto;
+        margin: 0 0 1 0;
+    }
+
+    MonitorDisplay {
+        height: auto;
+        min-height: 8;
+    }
+
+    /* Chart */
+    SpeedChart {
+        height: auto;
+        min-height: 14;
+    }
+
+    /* Info panels */
+    ServerInfoWidget, SystemStatusWidget {
+        height: auto;
+        min-height: 6;
+    }
+
+    /* Bottom panel */
+    #bottom-panel {
+        height: auto;
+        max-height: 10;
+    }
+
+    /* Status log */
+    RichLog {
+        background: #0d1117;
+        border: solid #565f89;
+        height: 100%;
+        max-height: 4;
+    }
+
+    /* Controls */
     #controls {
         height: 3;
         align: center middle;
         padding: 0 1;
     }
 
-    /* Speed gauges row */
-    #gauges {
-        height: auto;
+    Button {
+        margin: 0 1;
+        min-width: 14;
     }
 
-    Gauge {
-        width: 1fr;
+    Button:hover {
+        text-style: bold;
+        background: #00ff41;
+        color: #0a0e14;
     }
 
-    /* Info bar at bottom */
-    #info-bar {
-        height: auto;
-        background: #24253a;
-        padding: 0 1;
+    #test-button {
+        background: #00ff41;
+        color: #0a0e14;
+        text-style: bold;
     }
 
-    /* History container scrolling */
-    ListView {
+    #monitor-button {
+        background: #00d4ff;
+        color: #0a0e14;
+        text-style: bold;
+    }
+
+    #stop-button {
+        background: #ff0044;
+        color: #0a0e14;
+        text-style: bold;
+    }
+
+    #history-button {
+        background: #0d1117;
+        color: #00d4ff;
         border: solid #565f89;
-        height: 100%;
     }
 
-    /* Rich log for history */
-    RichLog {
-        border: solid #565f89;
-        height: 100%;
-    }
-
-    /* Error state */
+    /* State classes */
     .error-text {
-        color: #f7768e;
+        color: #ff0044;
     }
     .success-text {
-        color: #9ece6a;
+        color: #00ff41;
+    }
+    .info-text {
+        color: #00d4ff;
+    }
+
+    /* History scrolling */
+    #history-container {
+        overflow-y: scroll;
+        height: 100%;
+    }
+
+    #history-container TestResultCard {
+        margin: 0 0 1 0;
     }
     """
 
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
         Binding("r", "run_test", "Run Test", show=True),
+        Binding("m", "toggle_monitor", "Monitor", show=True),
         Binding("s", "show_history", "History", show=True),
         Binding("c", "show_config", "Config", show=True),
         Binding("d", "toggle_detail", "Detail", show=True),
@@ -232,24 +301,31 @@ class SpeedMeterApp(App):
 
     # Reactive properties
     is_testing = reactive(False)
-    status_message = reactive("Ready. Press [b]Space[/] or [b]R[/] to run a speed test.")
+    is_monitoring = reactive(False)
+    status_message = reactive("Ready. [bold]Space[/] = Test  [bold]M[/] = Monitor  [bold]Q[/] = Quit")
 
     def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
         server_id: Optional[int] = None,
         output: Optional[str] = None,
+        start_monitor: bool = False,
     ):
         super().__init__()
         self.config = config or get_default_config()
         self.server_id = server_id
         self.output = output
+        self.start_monitor = start_monitor
         self.history = HistoryManager(
             max_size=self.config.get("app", {}).get("history_size", 50),
         )
         self.tester = SpeedTester(
             server_id=self.server_id,
             timeout=self.config.get("app", {}).get("timeout", 30),
+        )
+        self.monitor = NetworkMonitor(
+            callback=self._on_monitor_data,
+            interval=self.config.get("app", {}).get("refresh_interval", 1),
         )
         self._test_task: Optional[asyncio.Task] = None
         self._progress_value = 0.0
@@ -260,52 +336,64 @@ class SpeedMeterApp(App):
         """Create the application layout."""
         yield Header(show_clock=True)
         with Container(id="main-container"):
-            with Vertical(id="top-left"):
-                # Speed gauges
+            with Vertical(id="left-column"):
+                # Speed gauges row
                 with Horizontal(id="gauges"):
                     yield SpeedGauge(
-                        label="Download",
+                        label="DOWNLOAD",
                         unit="Mbps",
                         max_value=1000.0,
+                        accent_color=NEON_CYAN,
                         id="dl-gauge",
                     )
                     yield SpeedGauge(
-                        label="Upload",
+                        label="UPLOAD",
                         unit="Mbps",
                         max_value=500.0,
+                        accent_color=NEON_MAGENTA,
                         id="ul-gauge",
                     )
                     yield SpeedGauge(
-                        label="Ping",
+                        label="PING",
                         unit="ms",
                         max_value=200.0,
                         danger_threshold=100.0,
                         warning_threshold=50.0,
+                        accent_color=NEON_YELLOW,
                         id="ping-gauge",
                     )
-                # Speed chart
-                yield SpeedChart(max_points=30, label="Speed History", id="speed-chart")
-            with Vertical(id="top-right"):
+                # Monitor display
+                with Vertical(id="monitor-section"):
+                    yield MonitorDisplay(id="monitor-display")
+                # Speed history chart
+                yield SpeedChart(max_points=30, label="SPEED HISTORY", id="speed-chart")
+            with Vertical(id="right-column"):
                 yield ServerInfoWidget(id="server-info")
                 yield SystemStatusWidget(id="sys-status")
             # Bottom panel
             with Vertical(id="bottom-panel"):
                 yield RichLog(id="status-log", highlight=True, markup=True, max_lines=5)
                 with Horizontal(id="controls"):
-                    yield Button("Run Test [bold](Space)[/]", id="test-button", variant="success")
-                    yield Button("Stop", id="stop-button", variant="error", disabled=True)
-                    yield Button("History [bold](S)[/]", id="history-button")
-                    yield Button("Quick Mode", id="quick-button")
+                    yield Button("RUN TEST [Space]", id="test-button", variant="success")
+                    yield Button("MONITOR [M]", id="monitor-button", variant="primary")
+                    yield Button("STOP", id="stop-button", variant="error", disabled=True)
+                    yield Button("HISTORY [S]", id="history-button")
         yield Footer(id="app-footer")
 
     def on_mount(self) -> None:
         """Called when the app is mounted."""
-        self.query_one("#status-log", RichLog).write("[bold cyan]SpeedMeter[/bold cyan] v1.0.0 — Internet Speed Meter")
         self.query_one("#status-log", RichLog).write(
-            "[dim]Press [b]Space[/b] or [b]R[/b] to run a speed test. [b]Q[/b] to quit.[/dim]"
+            "[bold #00ff41]SPEEDMETER v1.1.0[/bold #00ff41] — Cyberpunk Internet Speed Meter"
+        )
+        self.query_one("#status-log", RichLog).write(
+            "[dim #565f89]Space[/] = Run Test  [dim #565f89]M[/] = Toggle Monitor  [dim #565f89]Q[/] = Quit"
         )
         self.set_interval(5, self._update_system_stats)
         self.set_interval(1, self._tick_animations)
+
+        # Auto-start monitor if requested (--monitor flag)
+        if self.start_monitor:
+            self.toggle_monitor()
 
     def _tick_animations(self) -> None:
         """Tick gauge animations."""
@@ -345,21 +433,38 @@ class SpeedMeterApp(App):
         except Exception:
             pass
 
+    def watch_is_monitoring(self, monitoring: bool) -> None:
+        """Update UI when monitor state changes."""
+        try:
+            btn = self.query_one("#monitor-button", Button)
+            btn.label = "STOP MONITOR [M]" if monitoring else "MONITOR [M]"
+            btn.variant = "error" if monitoring else "primary"
+        except Exception:
+            pass
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""
         button_id = event.button.id
         if button_id == "test-button":
             self.run_test()
+        elif button_id == "monitor-button":
+            self.toggle_monitor()
         elif button_id == "stop-button":
             self.stop_test()
         elif button_id == "history-button":
             self.show_history()
-        elif button_id == "quick-button":
-            self.run_quick_test()
+
+    # =========================================================================
+    # Actions
+    # =========================================================================
 
     def action_run_test(self) -> None:
         """Action: run a speed test."""
         self.run_test()
+
+    def action_toggle_monitor(self) -> None:
+        """Action: toggle continuous monitoring."""
+        self.toggle_monitor()
 
     def action_show_history(self) -> None:
         """Action: show history screen."""
@@ -374,12 +479,16 @@ class SpeedMeterApp(App):
         self._show_detail = not self._show_detail
         self._log(f"[dim]Detail view: {'ON' if self._show_detail else 'OFF'}[/dim]")
 
+    # =========================================================================
+    # Speed Test
+    # =========================================================================
+
     def run_test(self) -> None:
         """Start a speed test in the background."""
         if self.is_testing:
             return
         self.is_testing = True
-        self.status_message = "[yellow]Starting speed test...[/yellow]"
+        self.status_message = "[#ffd700]Starting speed test...[/#ffd700]"
         self._test_task = asyncio.create_task(self._run_test_async())
 
     def stop_test(self) -> None:
@@ -387,11 +496,7 @@ class SpeedMeterApp(App):
         if self._test_task and not self._test_task.done():
             self._test_task.cancel()
             self.is_testing = False
-            self.status_message = "[red]Test cancelled.[/red]"
-
-    def run_quick_test(self) -> None:
-        """Run a one-shot quick test and show results."""
-        self.run_test()
+            self.status_message = "[#ff0044]Test cancelled.[/#ff0044]"
 
     async def _run_test_async(self) -> None:
         """Run the speed test asynchronously with progress updates."""
@@ -410,8 +515,8 @@ class SpeedMeterApp(App):
         self.is_testing = False
 
         if result.error:
-            self._log(f"[red]Test failed: {result.error}[/red]")
-            self.status_message = f"[red]Error: {result.error}[/red]"
+            self._log(f"[#ff0044]Test failed: {result.error}[/#ff0044]")
+            self.status_message = f"[#ff0044]Error: {result.error}[/#ff0044]"
             return
 
         # Store in history
@@ -458,16 +563,18 @@ class SpeedMeterApp(App):
         # Log result
         ts = time.strftime("%H:%M:%S", time.localtime(result.timestamp))
         self._log(
-            f"[green]✓[/green] [bold]{ts}[/bold] — "
-            f"DL: [cyan]{result.download_mbps:.2f}[/cyan] Mbps | "
-            f"UL: [magenta]{result.upload_mbps:.2f}[/magenta] Mbps | "
-            f"Ping: [yellow]{result.ping_ms:.1f}[/yellow] ms"
+            "[#00ff41]\u2713[/#00ff41] [bold]"
+            + ts
+            + "[/bold] \u2014 "
+            + f"DL: [#00d4ff]{result.download_mbps:.2f}[/#00d4ff] Mbps | "
+            + f"UL: [#ff00ff]{result.upload_mbps:.2f}[/#ff00ff] Mbps | "
+            + f"Ping: [#ffd700]{result.ping_ms:.1f}[/#ffd700] ms"
         )
 
         self.status_message = (
-            f"[green]Download: {result.download_mbps:.2f} Mbps | "
+            f"[#00ff41]Download: {result.download_mbps:.2f} Mbps | "
             f"Upload: {result.upload_mbps:.2f} Mbps | "
-            f"Ping: {result.ping_ms:.1f} ms[/green]"
+            f"Ping: {result.ping_ms:.1f} ms[/#00ff41]"
         )
 
         # Save to file if requested
@@ -477,7 +584,60 @@ class SpeedMeterApp(App):
                     f.write(result.to_json() + "\n")
                 self._log(f"[dim]Saved to {self.output}[/dim]")
             except IOError as e:
-                self._log(f"[red]Could not save: {e}[/red]")
+                self._log(f"[#ff0044]Could not save: {e}[/#ff0044]")
+
+    # =========================================================================
+    # Continuous Monitoring
+    # =========================================================================
+
+    def toggle_monitor(self) -> None:
+        """Toggle continuous network monitoring on/off."""
+        if self.is_monitoring:
+            self._stop_monitor()
+        else:
+            self._start_monitor()
+
+    def _start_monitor(self) -> None:
+        """Start continuous network monitoring."""
+        self.monitor.start()
+        self.is_monitoring = True
+        self.status_message = "[#00ff41]Monitoring started — tracking live network traffic[/#00ff41]"
+        self._log("[#00ff41]LIVE MONITOR: tracking network traffic in real-time[/#00ff41]")
+
+    def _stop_monitor(self) -> None:
+        """Stop continuous network monitoring."""
+        self.monitor.stop()
+        self.is_monitoring = False
+        self.status_message = "[#ffd700]Monitoring stopped[/#ffd700]"
+        self._log("[#ffd700]LIVE MONITOR: stopped[/#ffd700]")
+
+    def _on_monitor_data(self, dl_mbps: float, ul_mbps: float) -> None:
+        """Called by NetworkMonitor each tick with live speed data."""
+        # This runs in a background thread — use call_from_thread for UI updates
+        try:
+            self.call_from_thread(self._update_monitor_display, dl_mbps, ul_mbps)
+        except Exception:
+            pass
+
+    def _update_monitor_display(self, dl_mbps: float, ul_mbps: float) -> None:
+        """Update the monitor display widget (runs in event loop thread)."""
+        try:
+            display = self.query_one("#monitor-display", MonitorDisplay)
+            display.update_speed(dl_mbps, ul_mbps)
+
+            # Also update gauges to reflect live traffic
+            try:
+                dl_gauge = self.query_one("#dl-gauge", SpeedGauge)
+                dl_gauge.set_value(dl_mbps)
+            except Exception:
+                pass
+            try:
+                ul_gauge = self.query_one("#ul-gauge", SpeedGauge)
+                ul_gauge.set_value(ul_mbps)
+            except Exception:
+                pass
+        except Exception:
+            pass
 
     def show_history(self) -> None:
         """Navigate to history screen."""

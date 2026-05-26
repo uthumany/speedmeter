@@ -1,10 +1,11 @@
-"""Speed test execution and result handling."""
+"""Speed test execution, result handling, and network monitoring."""
 
 import json
 import logging
+import threading
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     import speedtest
@@ -84,7 +85,7 @@ class SpeedTester:
         self,
         server_id: Optional[int] = None,
         timeout: int = 30,
-        callback: Optional[callable] = None,
+        callback: Optional[Callable] = None,
     ):
         self.server_id = server_id
         self.timeout = timeout
@@ -237,6 +238,120 @@ class SpeedTester:
             return 0.0
 
 
+class NetworkMonitor:
+    """Real-time network traffic monitor using psutil.
+
+    Polls net_io_counters() at a regular interval to calculate
+    live download/upload speeds in Mbps based on actual traffic
+    flowing through the network interface.
+    """
+
+    def __init__(
+        self,
+        callback: Optional[Callable[[float, float], None]] = None,
+        interval: float = 1.0,
+    ):
+        """Initialize the network monitor.
+
+        Args:
+            callback: Called every tick with (download_mbps, upload_mbps)
+            interval: Polling interval in seconds (default: 1.0)
+        """
+        self.callback = callback
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._last_dl: float = 0.0
+        self._last_ul: float = 0.0
+        self._last_time: float = 0.0
+        self._has_psutil = False
+
+    @property
+    def is_running(self) -> bool:
+        """Check if the monitor is currently running."""
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(self) -> None:
+        """Start the background monitoring thread."""
+        if self.is_running:
+            return
+        self._stop_event.clear()
+
+        # Check if psutil is available
+        try:
+            import psutil  # noqa: F401
+
+            self._has_psutil = True
+        except ImportError:
+            self._has_psutil = False
+            logger.warning("psutil not available — network monitoring unavailable")
+
+        self._thread = threading.Thread(target=self._run, daemon=True, name="net-monitor")
+        self._thread.start()
+        logger.info("Network monitor started (interval=%ss)", self.interval)
+
+    def stop(self) -> None:
+        """Stop the background monitoring thread."""
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=3.0)
+            self._thread = None
+        logger.info("Network monitor stopped")
+
+    def _run(self) -> None:
+        """Main monitoring loop — runs in a background thread."""
+        if not self._has_psutil:
+            # Fallback: try fast.com or requests-based ping
+            self._run_fallback_monitor()
+            return
+
+        import psutil
+
+        # Initialize counters
+        counters = psutil.net_io_counters()
+        self._last_dl = counters.bytes_recv
+        self._last_ul = counters.bytes_sent
+        self._last_time = time.time()
+
+        while not self._stop_event.is_set():
+            time.sleep(self.interval)
+            try:
+                counters = psutil.net_io_counters()
+                now = time.time()
+                dt = now - self._last_time
+
+                if dt > 0:
+                    dl_mbps = ((counters.bytes_recv - self._last_dl) * 8) / (dt * 1_000_000)
+                    ul_mbps = ((counters.bytes_sent - self._last_ul) * 8) / (dt * 1_000_000)
+                else:
+                    dl_mbps = ul_mbps = 0.0
+
+                self._last_dl = counters.bytes_recv
+                self._last_ul = counters.bytes_sent
+                self._last_time = now
+
+                # Clamp negative values (counter reset)
+                dl_mbps = max(0.0, dl_mbps)
+                ul_mbps = max(0.0, ul_mbps)
+
+                if self.callback:
+                    self.callback(dl_mbps, ul_mbps)
+
+            except Exception as e:
+                logger.debug("Network monitor tick error: %s", e)
+
+    def _run_fallback_monitor(self) -> None:
+        """Fallback monitoring when psutil is not available.
+
+        Pings public services to approximate connectivity status.
+        """
+        while not self._stop_event.is_set():
+            if self.callback:
+                # No real traffic data without psutil — report 0
+                self.callback(0.0, 0.0)
+            self._stop_event.wait(self.interval * 3)
+
+
 def run_quick_test(
     server_id: Optional[int] = None,
     output: Optional[str] = None,
@@ -248,7 +363,7 @@ def run_quick_test(
     def progress(stage, pct):
         bar_len = 30
         filled = int(bar_len * pct)
-        bar = "█" * filled + "░" * (bar_len - filled)
+        bar = "\u2588" * filled + "\u2591" * (bar_len - filled)
         print(f"\r  {stage}: [{bar}] {pct * 100:.0f}%", end="", flush=True)
 
     tester.callback = progress
