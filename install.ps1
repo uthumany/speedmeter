@@ -167,3 +167,12 @@ Write-ColorHost "      [Environment]::GetEnvironmentVariable('Path','User') + ';
 Write-ColorHost "      'User')" "Yellow"
 Write-ColorHost ""
 Write-ColorHost "  SpeedMeter v1.0.0 — Happy speed testing!" "Cyan"
+Write-ColorHost ""
+
+# ---- Uninstall Instructions ----
+Write-ColorHost "Uninstall Instructions:" "Yellow"
+Write-ColorHost "  To remove SpeedMeter, run:" "Yellow"
+Write-ColorHost "    Remove-Item -Recurse -Force $InstallDir" "Cyan"
+Write-ColorHost "  Or run the uninstall script:" "Yellow"
+Write-ColorHost "    & `"$InstallDir\uninstall.ps1`"" "Cyan"
+Write-ColorHost ""

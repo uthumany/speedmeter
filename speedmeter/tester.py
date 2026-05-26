@@ -1,12 +1,14 @@
 """Speed test execution and result handling."""
+
 import json
 import logging
 import time
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional
 
 try:
     import speedtest
+
     HAS_SPEEDTEST = True
 except ImportError:
     HAS_SPEEDTEST = False
@@ -17,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SpeedTestResult:
     """Represents a single speed test result."""
+
     timestamp: float = 0.0
     download_bps: float = 0.0
     upload_bps: float = 0.0
@@ -140,8 +143,8 @@ class SpeedTester:
             result.server_country = server.get("country", "")
             result.server_host = server.get("host", "")
             result.server_id = int(server.get("id", 0))
-            result.isp = st.results.client.get("isp", "") if hasattr(st.results, 'client') else ""
-            result.external_ip = st.results.client.get("ip", "") if hasattr(st.results, 'client') else ""
+            result.isp = st.results.client.get("isp", "") if hasattr(st.results, "client") else ""
+            result.external_ip = st.results.client.get("ip", "") if hasattr(st.results, "client") else ""
 
             # Ping test
             if self.callback:
@@ -156,7 +159,7 @@ class SpeedTester:
             st.download(callback=self._make_callback("download"))
             result.download_bps = st.results.download
             result.download_mbps = st.results.download / 1_000_000
-            result.bytes_downloaded = st.results.bytes_received if hasattr(st.results, 'bytes_received') else 0
+            result.bytes_downloaded = st.results.bytes_received if hasattr(st.results, "bytes_received") else 0
 
             # Upload test
             if self.callback:
@@ -165,7 +168,7 @@ class SpeedTester:
             st.upload(callback=self._make_callback("upload"))
             result.upload_bps = st.results.upload
             result.upload_mbps = st.results.upload / 1_000_000
-            result.bytes_uploaded = st.results.bytes_sent if hasattr(st.results, 'bytes_sent') else 0
+            result.bytes_uploaded = st.results.bytes_sent if hasattr(st.results, "bytes_sent") else 0
 
             # Jitter — speedtest-cli doesn't expose per-packet variance,
             # so jitter stays at the dataclass default of 0.0 by design.
@@ -175,7 +178,9 @@ class SpeedTester:
 
             logger.info(
                 "Speed test complete: %.2f Mbps down / %.2f Mbps up / %.1f ms ping",
-                result.download_mbps, result.upload_mbps, result.ping_ms,
+                result.download_mbps,
+                result.upload_mbps,
+                result.ping_ms,
             )
 
         except speedtest.SpeedtestException as e:
@@ -244,7 +249,7 @@ def run_quick_test(
         bar_len = 30
         filled = int(bar_len * pct)
         bar = "█" * filled + "░" * (bar_len - filled)
-        print(f"\r  {stage}: [{bar}] {pct*100:.0f}%", end="", flush=True)
+        print(f"\r  {stage}: [{bar}] {pct * 100:.0f}%", end="", flush=True)
 
     tester.callback = progress
     result = tester.run_test()
@@ -278,14 +283,16 @@ def list_servers() -> List[Dict[str, Any]]:
         result = []
         for server_list in servers.values():
             for s in server_list:
-                result.append({
-                    "id": s.get("id", 0),
-                    "name": s.get("name", ""),
-                    "location": s.get("sponsor", s.get("name", "")),
-                    "country": s.get("country", ""),
-                    "sponsor": s.get("sponsor", ""),
-                    "host": s.get("host", ""),
-                })
+                result.append(
+                    {
+                        "id": s.get("id", 0),
+                        "name": s.get("name", ""),
+                        "location": s.get("sponsor", s.get("name", "")),
+                        "country": s.get("country", ""),
+                        "sponsor": s.get("sponsor", ""),
+                        "host": s.get("host", ""),
+                    }
+                )
         return sorted(result, key=lambda x: x["id"])
     except Exception as e:
         logger.error("Failed to list servers: %s", e)

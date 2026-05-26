@@ -1,7 +1,7 @@
 """Tests for SpeedMeter modules."""
+
 import json
 import os
-import sys
 import tempfile
 import time
 
@@ -9,12 +9,12 @@ import pytest
 
 from speedmeter.config import get_default_config, load_config, save_config
 from speedmeter.history import HistoryManager
-from speedmeter.tester import SpeedTestResult, SpeedTester
-
+from speedmeter.tester import SpeedTester, SpeedTestResult
 
 # =============================================================================
 # Config Tests
 # =============================================================================
+
 
 class TestConfig:
     """Test configuration module."""
@@ -56,6 +56,7 @@ class TestConfig:
 # =============================================================================
 # SpeedTestResult Tests
 # =============================================================================
+
 
 class TestSpeedTestResult:
     """Test SpeedTestResult dataclass."""
@@ -155,6 +156,7 @@ class TestSpeedTestResult:
 # HistoryManager Tests
 # =============================================================================
 
+
 class TestHistoryManager:
     """Test history management."""
 
@@ -188,12 +190,14 @@ class TestHistoryManager:
         """History should respect max_size."""
         hm = HistoryManager(max_size=3)
         for i in range(5):
-            hm.add(SpeedTestResult(
-                timestamp=float(i),
-                download_mbps=float(100 + i),
-                upload_mbps=float(50 + i),
-                ping_ms=10.0,
-            ))
+            hm.add(
+                SpeedTestResult(
+                    timestamp=float(i),
+                    download_mbps=float(100 + i),
+                    upload_mbps=float(50 + i),
+                    ping_ms=10.0,
+                )
+            )
         assert hm.get_count() == 3
 
     def test_clear_history(self):
@@ -208,11 +212,13 @@ class TestHistoryManager:
         """Average download calculation should work."""
         hm = HistoryManager(max_size=10)
         for i in range(1, 6):
-            hm.add(SpeedTestResult(
-                download_mbps=float(i * 50),
-                upload_mbps=25.0,
-                ping_ms=10.0,
-            ))
+            hm.add(
+                SpeedTestResult(
+                    download_mbps=float(i * 50),
+                    upload_mbps=25.0,
+                    ping_ms=10.0,
+                )
+            )
         avg = hm.get_average_download(5)
         assert avg == 150.0  # (50+100+150+200+250)/5
 
@@ -244,13 +250,15 @@ class TestHistoryManager:
 
         try:
             hm = HistoryManager(max_size=10, file_path=path)
-            hm.add(SpeedTestResult(
-                timestamp=1000,
-                download_mbps=100,
-                upload_mbps=50,
-                ping_ms=10,
-                server_name="Test",
-            ))
+            hm.add(
+                SpeedTestResult(
+                    timestamp=1000,
+                    download_mbps=100,
+                    upload_mbps=50,
+                    ping_ms=10,
+                    server_name="Test",
+                )
+            )
 
             # Create a new instance with same file
             hm2 = HistoryManager(max_size=10, file_path=path)
@@ -266,12 +274,14 @@ class TestHistoryManager:
 
         try:
             hm = HistoryManager(max_size=10)
-            hm.add(SpeedTestResult(
-                timestamp=1000,
-                download_mbps=100,
-                upload_mbps=50,
-                ping_ms=10,
-            ))
+            hm.add(
+                SpeedTestResult(
+                    timestamp=1000,
+                    download_mbps=100,
+                    upload_mbps=50,
+                    ping_ms=10,
+                )
+            )
             success = hm.export_json(path)
             assert success is True
             with open(path) as f:
@@ -285,12 +295,14 @@ class TestHistoryManager:
         """Getting last N results should work."""
         hm = HistoryManager(max_size=10)
         for i in range(1, 6):
-            hm.add(SpeedTestResult(
-                timestamp=float(i),
-                download_mbps=float(i * 100),
-                upload_mbps=50.0,
-                ping_ms=10.0,
-            ))
+            hm.add(
+                SpeedTestResult(
+                    timestamp=float(i),
+                    download_mbps=float(i * 100),
+                    upload_mbps=50.0,
+                    ping_ms=10.0,
+                )
+            )
         last = hm.get_last(2)
         assert len(last) == 2
         assert last[0].timestamp == 4  # index 0 is the older of the last 2
@@ -300,6 +312,7 @@ class TestHistoryManager:
 # =============================================================================
 # SpeedTester Tests
 # =============================================================================
+
 
 class TestSpeedTester:
     """Test SpeedTester (without actual network calls)."""
@@ -321,48 +334,56 @@ class TestSpeedTester:
 # Integration: Command-Line Parsing
 # =============================================================================
 
+
 class TestCLI:
     """Test command-line argument parsing."""
 
     def test_cli_quick(self):
         """--quick flag should be parsed."""
         from speedmeter.__main__ import parse_args
+
         args = parse_args(["--quick"])
         assert args.quick is True
 
     def test_cli_server(self):
         """-s/--server flag should be parsed."""
         from speedmeter.__main__ import parse_args
+
         args = parse_args(["--server", "12345"])
         assert args.server == 12345
 
     def test_cli_output(self):
         """-o/--output flag should be parsed."""
         from speedmeter.__main__ import parse_args
+
         args = parse_args(["--output", "results.json"])
         assert args.output == "results.json"
 
     def test_cli_version(self):
         """--version flag should be parsed."""
         from speedmeter.__main__ import parse_args
+
         args = parse_args(["--version"])
         assert args.version is True
 
     def test_cli_list_servers(self):
         """--list-servers flag should be parsed."""
         from speedmeter.__main__ import parse_args
+
         args = parse_args(["--list-servers"])
         assert args.list_servers is True
 
     def test_cli_verbose(self):
         """-v/--verbose flag should be parsed."""
         from speedmeter.__main__ import parse_args
+
         args = parse_args(["-v"])
         assert args.verbose is True
 
     def test_cli_config(self):
         """-c/--config flag should be parsed."""
         from speedmeter.__main__ import parse_args
+
         args = parse_args(["--config", "/path/to/config.json"])
         assert args.config == "/path/to/config.json"
 
@@ -371,12 +392,14 @@ class TestCLI:
 # Config: Deep merge edge cases
 # =============================================================================
 
+
 class TestConfigDeepMerge:
     """Test deep merge configuration behavior."""
 
     def test_deep_merge_overrides_nested_key(self):
         """Deep merge should override nested values."""
         from speedmeter.config import _deep_merge
+
         base = {"app": {"refresh_interval": 5, "theme": "auto"}}
         override = {"app": {"refresh_interval": 10}}
         _deep_merge(base, override)
@@ -386,6 +409,7 @@ class TestConfigDeepMerge:
     def test_deep_merge_adds_new_key(self):
         """Deep merge should add keys not in base."""
         from speedmeter.config import _deep_merge
+
         base = {"app": {"refresh_interval": 5}}
         override = {"app": {"timeout": 60}}
         _deep_merge(base, override)
@@ -394,6 +418,7 @@ class TestConfigDeepMerge:
     def test_deep_merge_overrides_non_dict(self):
         """Deep merge should override non-dict values entirely."""
         from speedmeter.config import _deep_merge
+
         base = {"units": {"speed": "Mbps"}}
         override = {"units": "custom"}
         _deep_merge(base, override)
@@ -402,6 +427,7 @@ class TestConfigDeepMerge:
     def test_save_config_no_path(self):
         """save_config should return False when no path available."""
         from speedmeter.config import save_config
+
         result = save_config({"app": {}})
         assert result is False
 
@@ -409,6 +435,7 @@ class TestConfigDeepMerge:
 # =============================================================================
 # SpeedTestResult: Deserialization edge cases
 # =============================================================================
+
 
 class TestSpeedTestResultEdgeCases:
     """Test SpeedTestResult edge cases."""
@@ -467,6 +494,7 @@ class TestSpeedTestResultEdgeCases:
 # HistoryManager: Edge cases and concurrency
 # =============================================================================
 
+
 class TestHistoryManagerEdgeCases:
     """Test HistoryManager edge cases."""
 
@@ -502,12 +530,14 @@ class TestHistoryManagerEdgeCases:
 
         def adder(idx):
             try:
-                hm.add(SpeedTestResult(
-                    timestamp=float(idx),
-                    download_mbps=float(idx * 10),
-                    upload_mbps=float(idx * 5),
-                    ping_ms=10.0,
-                ))
+                hm.add(
+                    SpeedTestResult(
+                        timestamp=float(idx),
+                        download_mbps=float(idx * 10),
+                        upload_mbps=float(idx * 5),
+                        ping_ms=10.0,
+                    )
+                )
             except Exception as e:
                 errors.append(e)
 
@@ -537,6 +567,7 @@ class TestHistoryManagerEdgeCases:
 # =============================================================================
 # SpeedTester: _make_callback behavior
 # =============================================================================
+
 
 class TestSpeedTesterCallbacks:
     """Test the callback mechanism."""
@@ -603,12 +634,14 @@ class TestSpeedTesterCallbacks:
 # SpeedGauge: Animation state tracking
 # =============================================================================
 
+
 class TestSpeedGaugeAnimation:
     """Test SpeedGauge animation behavior (no TUI rendering)."""
 
     def test_gauge_initial_state(self):
         """Gauge should start at 0 with animation complete."""
         from speedmeter.widgets import SpeedGauge
+
         gauge = SpeedGauge(label="Test", max_value=100.0)
         assert gauge.current_value == 0.0
         assert gauge.animate_to == 0.0
@@ -617,6 +650,7 @@ class TestSpeedGaugeAnimation:
     def test_gauge_set_value_resets_animation(self):
         """set_value should update animate_to and keep current_value stable."""
         from speedmeter.widgets import SpeedGauge
+
         gauge = SpeedGauge(label="Test", max_value=100.0)
         gauge.set_value(50.0, animate=True)
         assert gauge.animate_to == 50.0
@@ -625,6 +659,7 @@ class TestSpeedGaugeAnimation:
     def test_gauge_set_value_no_animate(self):
         """set_value with animate=False should set both immediately."""
         from speedmeter.widgets import SpeedGauge
+
         gauge = SpeedGauge(label="Test", max_value=100.0)
         gauge.current_value = 30.0
         gauge.set_value(50.0, animate=False)
@@ -634,6 +669,7 @@ class TestSpeedGaugeAnimation:
     def test_gauge_render_snaps_current_value(self):
         """After render with complete animation, current_value should equal animate_to."""
         from speedmeter.widgets import SpeedGauge
+
         gauge = SpeedGauge(label="Test", max_value=100.0)
         gauge.set_value(75.0, animate=True)
         gauge.animation_progress = 1.0  # simulate animation complete
@@ -644,6 +680,7 @@ class TestSpeedGaugeAnimation:
     def test_gauge_render_in_progress(self):
         """During animation, current_value should NOT snap yet."""
         from speedmeter.widgets import SpeedGauge
+
         gauge = SpeedGauge(label="Test", max_value=100.0)
         gauge.current_value = 10.0
         gauge.set_value(90.0, animate=True)

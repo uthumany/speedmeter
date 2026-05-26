@@ -1,10 +1,12 @@
 """Configuration module for SpeedMeter."""
+
 import json
 import os
 from typing import Any, Dict, Optional
 
 try:
-    from platformdirs import user_config_dir, user_cache_dir, user_log_dir
+    from platformdirs import user_cache_dir, user_config_dir, user_log_dir
+
     HAS_PLATFORMDIRS = True
 except ImportError:
     HAS_PLATFORMDIRS = False
@@ -35,11 +37,11 @@ def get_default_config() -> Dict[str, Any]:
     dirs = get_app_dirs()
     return {
         "app": {
-            "refresh_interval": 5,           # seconds between auto-refresh
-            "theme": "auto",                 # auto, dark, light
-            "history_size": 50,              # max results stored
-            "chart_points": 30,              # points in live chart
-            "timeout": 30,                   # speed test timeout in seconds
+            "refresh_interval": 5,  # seconds between auto-refresh
+            "theme": "auto",  # auto, dark, light
+            "history_size": 50,  # max results stored
+            "chart_points": 30,  # points in live chart
+            "timeout": 30,  # speed test timeout in seconds
         },
         "paths": {
             "config_dir": dirs["config_dir"],
@@ -49,13 +51,13 @@ def get_default_config() -> Dict[str, Any]:
             "config_file": os.path.join(dirs["config_dir"], "config.json"),
         },
         "units": {
-            "speed": "Mbps",                 # Mbps, MB/s
-            "precision": 2,                  # decimal places
+            "speed": "Mbps",  # Mbps, MB/s
+            "precision": 2,  # decimal places
         },
         "notifications": {
             "enabled": True,
-            "threshold_download": None,      # alert if below this Mbps
-            "threshold_upload": None,        # alert if below this Mbps
+            "threshold_download": None,  # alert if below this Mbps
+            "threshold_upload": None,  # alert if below this Mbps
         },
     }
 

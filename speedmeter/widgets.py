@@ -1,15 +1,13 @@
 """Custom Textual widgets for the SpeedMeter TUI."""
-import math
-from typing import Optional, Tuple
 
-from rich.console import RenderableType
+import time
+
 from rich.panel import Panel
 from rich.progress_bar import ProgressBar
-from rich.style import Style
 from rich.table import Table
 from rich.text import Text
-from textual.widgets import Static
 from textual.app import RenderableType as TextualRenderableType
+from textual.widgets import Static
 
 
 class SpeedGauge(Static):
@@ -50,7 +48,6 @@ class SpeedGauge(Static):
             self.animation_progress = min(1.0, self.animation_progress + 0.1)
 
         clamped = max(0, min(value, self.max_value))
-        fraction = clamped / self.max_value if self.max_value > 0 else 0
 
         # Color based on thresholds
         if value <= self.danger_threshold:
@@ -70,17 +67,11 @@ class SpeedGauge(Static):
 
         # Value text
         if value >= 1000:
-            display_val = f"{value/1000:.2f} Gbps"
+            display_val = f"{value / 1000:.2f} Gbps"
         else:
             display_val = f"{value:.2f} {self.unit}"
 
         value_text = Text(display_val, style=f"bold {bar_color}")
-
-        # Gauge needle visual (ASCII dial indicator)
-        angle = fraction * 180  # 0 to 180 degrees
-        needle_pos = int((fraction * 30))
-        dial = " " * needle_pos + "▲" + " " * (30 - needle_pos)
-        dial_bar = "▁" * 10 + "▂▃▄▅▆▇█" + "▇▆▅▄▃▂" + "▁" * 10
 
         grid = Table.grid(padding=(0, 1))
         grid.add_column(justify="center")
@@ -187,6 +178,7 @@ class SystemStatusWidget(Static):
         """Render system status."""
         try:
             import psutil
+
             cpu = psutil.cpu_percent(interval=None)
             mem = psutil.virtual_memory()
             net = psutil.net_io_counters()
@@ -203,10 +195,18 @@ class SystemStatusWidget(Static):
         table.add_column()
 
         cpu_color = "green" if cpu < 50 else "yellow" if cpu < 80 else "red"
-        mem_color = "green" if mem.percent < 50 else "yellow" if mem.percent < 80 else "red" if hasattr(mem, 'percent') else "white"
+        mem_color = (
+            "green"
+            if mem.percent < 50
+            else "yellow"
+            if mem.percent < 80
+            else "red"
+            if hasattr(mem, "percent")
+            else "white"
+        )
 
         table.add_row("CPU:", Text(f"{cpu:.1f}%", style=cpu_color))
-        if hasattr(mem, 'percent'):
+        if hasattr(mem, "percent"):
             table.add_row("Memory:", Text(f"{mem.percent:.1f}%", style=mem_color))
         table.add_row("Uptime:", uptime_str)
         if net:
@@ -250,6 +250,3 @@ class ServerInfoWidget(Static):
         table.add_row("ISP:", self.isp)
         table.add_row("IP:", self.ip)
         return Panel(table, title="Connection", border_style="cyan")
-
-
-import time

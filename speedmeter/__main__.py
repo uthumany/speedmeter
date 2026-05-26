@@ -1,9 +1,11 @@
 """Main entry point for SpeedMeter."""
+
 import argparse
-import sys
 import logging
+import sys
+
 from speedmeter.app import SpeedMeterApp
-from speedmeter.config import load_config, get_default_config
+from speedmeter.config import get_default_config, load_config
 
 
 def parse_args(argv=None):
@@ -14,35 +16,41 @@ def parse_args(argv=None):
         epilog="Run without arguments to launch the interactive TUI.",
     )
     parser.add_argument(
-        "-q", "--quick",
+        "-q",
+        "--quick",
         action="store_true",
         help="Run a quick speed test once and exit (no TUI).",
     )
     parser.add_argument(
-        "-l", "--list-servers",
+        "-l",
+        "--list-servers",
         action="store_true",
         help="List available speedtest.net servers.",
     )
     parser.add_argument(
-        "-s", "--server",
+        "-s",
+        "--server",
         type=int,
         metavar="ID",
         help="Specify a speedtest.net server by ID.",
     )
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         type=str,
         metavar="PATH",
         help="Path to custom config file.",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         type=str,
         metavar="PATH",
         help="Save test results to a JSON file.",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging.",
     )
@@ -61,6 +69,7 @@ def main(argv=None):
 
     if args.version:
         from speedmeter import __version__
+
         print(f"SpeedMeter v{__version__}")
         return 0
 
@@ -74,6 +83,7 @@ def main(argv=None):
 
     if args.quick:
         from speedmeter.tester import run_quick_test
+
         result = run_quick_test(server_id=args.server, output=args.output)
         if result:
             print(result.format())
@@ -81,6 +91,7 @@ def main(argv=None):
 
     if args.list_servers:
         from speedmeter.tester import list_servers
+
         servers = list_servers()
         for s in servers:
             print(f"  {s['id']:>6}  {s['name']:<30}  {s['location']:<20}  {s['country']:<20}  {s['sponsor']:<30}")

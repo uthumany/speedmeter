@@ -28,7 +28,9 @@ MANIFEST
 
 # PyInstaller
 *.manifest
-*.spec
+# *.spec  # Uncomment to track .spec files (e.g., widget.spec)
+# Exclude auto-generated build artifacts
+!speedmeter/widget.spec
 
 # Installer logs
 pip-log.txt

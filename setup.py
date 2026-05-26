@@ -1,4 +1,5 @@
 """Setup script for SpeedMeter."""
+
 from setuptools import find_packages, setup
 
 setup(

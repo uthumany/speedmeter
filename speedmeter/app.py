@@ -5,24 +5,27 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from rich.text import Text
-from rich.table import Table
 from rich.panel import Panel
-from rich.layout import Layout
+from rich.table import Table
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import (
-    Button, Footer, Header, Input, Label, ListView, ListItem,
-    RichLog, Static,
+    Button,
+    Footer,
+    Header,
+    Label,
+    RichLog,
+    Static,
 )
 
 from speedmeter.config import get_default_config
 from speedmeter.history import HistoryManager
 from speedmeter.tester import SpeedTester, SpeedTestResult
-from speedmeter.widgets import SpeedGauge, SpeedChart, SystemStatusWidget, ServerInfoWidget
+from speedmeter.widgets import ServerInfoWidget, SpeedChart, SpeedGauge, SystemStatusWidget
 
 logger = logging.getLogger(__name__)
 
@@ -297,9 +300,7 @@ class SpeedMeterApp(App):
 
     def on_mount(self) -> None:
         """Called when the app is mounted."""
-        self.query_one("#status-log", RichLog).write(
-            "[bold cyan]SpeedMeter[/bold cyan] v1.0.0 — Internet Speed Meter"
-        )
+        self.query_one("#status-log", RichLog).write("[bold cyan]SpeedMeter[/bold cyan] v1.0.0 — Internet Speed Meter")
         self.query_one("#status-log", RichLog).write(
             "[dim]Press [b]Space[/b] or [b]R[/b] to run a speed test. [b]Q[/b] to quit.[/dim]"
         )
@@ -394,6 +395,7 @@ class SpeedMeterApp(App):
 
     async def _run_test_async(self) -> None:
         """Run the speed test asynchronously with progress updates."""
+
         def progress_callback(stage: str, progress: float) -> None:
             self._progress_stage = stage
             self._progress_value = progress
